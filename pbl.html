@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Road Safety Game - Easier Mode</title>
+<style>
+body{margin:0;overflow:hidden;font-family:Arial;background:linear-gradient(#4a6fa5,#87ceeb);text-align:center;}
+#score,#level{color:white;font-size:24px;padding:10px;}
+#gameArea{width:360px;height:600px;margin:auto;background:#555;position:relative;overflow:hidden;border-left:8px solid white;border-right:8px solid white;}
+.line{width:10px;height:80px;background:white;position:absolute;left:175px;}
+.car{width:50px;height:90px;background:linear-gradient(#1e90ff,#63b3ff);position:absolute;bottom:20px;left:155px;border-radius:10px;box-shadow:0 0 8px black;}
+.enemy{width:50px;height:90px;background:linear-gradient(#ff2d2d,#ff7a00);position:absolute;border-radius:10px;box-shadow:0 0 8px black;}
+#gameOver{position:absolute;top:220px;width:100%;font-size:40px;color:white;display:none;}
+#restartBtn{position:absolute;top:300px;left:50%;transform:translateX(-50%);padding:15px 30px;font-size:20px;cursor:pointer;display:none;}
+#city{position:absolute;bottom:0;width:100%;height:200px;background:repeating-linear-gradient(to right,#333 0px,#333 80px,#444 80px,#444 120px);}
+</style>
+</head>
+<body>
+
+<div id="score">Score: 0</div>
+<div id="level">Level: 1</div>
+
+<div id="gameArea">
+<div class="car" id="player"></div>
+<div id="gameOver">🚨 GAME OVER</div>
+<button id="restartBtn" onclick="restartGame()">Restart</button>
+</div>
+
+<div id="city"></div>
+
+<script>
+let gameArea=document.getElementById("gameArea");
+let player=document.getElementById("player");
+let scoreText=document.getElementById("score");
+let levelText=document.getElementById("level");
+let gameOverText=document.getElementById("gameOver");
+let restartBtn=document.getElementById("restartBtn");
+
+let lanePositions=[55,155,255];
+let currentLane=1;
+
+let enemies=[];
+let lines=[];
+let score=0;
+let level=1;
+let speed=4; // slower starting speed
+let gameRunning=true;
+const enemyHeight=90;
+const minVerticalGap=250; // increase gap for easier play
+
+document.addEventListener("keydown",function(e){
+if(!gameRunning) return;
+if(e.key==="ArrowLeft" && currentLane>0){currentLane--;player.style.left=lanePositions[currentLane]+"px";}
+if(e.key==="ArrowRight" && currentLane<2){currentLane++;player.style.left=lanePositions[currentLane]+"px";}
+});
+
+// Road lines
+for(let i=0;i<6;i++){let line=document.createElement("div");line.classList.add("line");line.style.top=(i*100)+"px";gameArea.appendChild(line);lines.push(line);}
+
+// Get safe lanes (max 2 per spawn)
+function getSafeLanes(y,maxPerSpawn=2){
+let freeLanes=lanePositions.slice();
+let result=[];
+for(let i=0;i<freeLanes.length;i++){
+let lane=freeLanes[i];
+let safe=true;
+for(let e of enemies){
+let eTop=parseInt(e.style.top);
+if(Math.abs(eTop - y)<minVerticalGap){safe=false;break;}
+}
+if(safe) result.push(lane);
+}
+if(result.length===0) return [lanePositions[Math.floor(Math.random()*3)]];
+if(result.length>maxPerSpawn){while(result.length>maxPerSpawn) result.splice(Math.floor(Math.random()*result.length),1);}
+return result;
+}
+
+// Create enemies
+function createEnemies(num=2){ // spawn fewer enemies
+for(let i=0;i<num;i++){
+let enemy=document.createElement("div");
+enemy.classList.add("enemy");
+let y=-100 - i*250; // larger spacing
+let lanes=getSafeLanes(y,2);
+let lane=lanes[Math.floor(Math.random()*lanes.length)];
+enemy.style.left=lane+"px";
+enemy.style.top=y+"px";
+gameArea.appendChild(enemy);
+enemies.push(enemy);
+}
+}
+
+function moveLines(){lines.forEach(line=>{let top=parseInt(line.style.top);top+=speed;if(top>600)top=-100;line.style.top=top+"px";});}
+
+function moveEnemies(){
+for(let enemy of enemies){
+let top=parseInt(enemy.style.top);
+top+=speed;
+if(top>600){
+let y=-Math.floor(Math.random()*300 + 200);
+let lanes=getSafeLanes(y,2);
+let lane=lanes[Math.floor(Math.random()*lanes.length)];
+enemy.style.left=lane+"px";
+enemy.style.top=y+"px";
+} else enemy.style.top=top+"px";
+checkCollision(enemy);
+}
+}
+
+function checkCollision(enemy){
+let p=player.getBoundingClientRect();
+let e=enemy.getBoundingClientRect();
+if(p.left<e.right && p.right>e.left && p.top<e.bottom && p.bottom>e.top){
+gameRunning=false;
+enemies.forEach(c=>c.remove());
+enemies=[];
+gameOverText.style.display="block";
+restartBtn.style.display="block";
+}
+}
+
+function gameLoop(){
+if(!gameRunning) return;
+moveLines();
+moveEnemies();
+score++;
+scoreText.innerHTML="Score: "+score;
+if(score % 300===0){ // slower level progression
+level++;
+levelText.innerHTML="Level: "+level;
+speed += 0.5; // slower speed increase
+if(enemies.length<4) createEnemies(1); // fewer enemies per level
+}
+requestAnimationFrame(gameLoop);
+}
+
+function restartGame(){
+score=0;level=1;speed=4;
+scoreText.innerHTML="Score: "+score;
+levelText.innerHTML="Level: "+level;
+currentLane=1;player.style.left=lanePositions[currentLane]+"px";
+gameRunning=true;
+gameOverText.style.display="none";
+restartBtn.style.display="none";
+enemies.forEach(c=>c.remove());
+enemies=[];
+createEnemies();
+gameLoop();
+}
+
+createEnemies();
+gameLoop();
+</script>
+</body>
+</html>
